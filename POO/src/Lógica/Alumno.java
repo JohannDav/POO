@@ -1,24 +1,51 @@
 package Lógica;
 public class Alumno {
     
-    int id;
+    int id; 
     String nombre;
-    String Apellido;
-    //modificador, tipo de dato que va a retornar, nombre del método, recibir un parametro?
-    public void mostrarNombre(){
-        
-        System.out.println("Hola soy un alumno y sé decir mi nombre: ");
-        
+    String apellido;
+
+    public Alumno() {
+    }
+
+    public Alumno(int id, String nombre, String apellido) {
+        this.id = id;
+        this.nombre = nombre;
+        this.apellido = apellido;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getApellido() {
+        return apellido;
+    }
+
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
     }
     
-    public void saberAprobado(double calificacion){
+    
+    
+    
+    public void mostrarNombre(){
         
-        if(calificacion <= 6){
-            System.out.println("Aprobé la materia");
-        }
-        else{
-            System.out.println("Uyy, no aprobé");
-        }
-        
+        System.out.println("Hola, soy un alumno y sé decir mi nombre ");
     }
+    
+    //Aquí debe estar lo de override
+    
 }
