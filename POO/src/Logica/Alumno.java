@@ -1,7 +1,8 @@
-package Lógica;
+package Logica;
+
 public class Alumno {
     
-    int id; 
+    int id;
     String nombre;
     String apellido;
 
@@ -13,7 +14,7 @@ public class Alumno {
         this.nombre = nombre;
         this.apellido = apellido;
     }
-
+    //get and set
     public int getId() {
         return id;
     }
@@ -43,9 +44,9 @@ public class Alumno {
     
     public void mostrarNombre(){
         
-        System.out.println("Hola, soy un alumno y sé decir mi nombre ");
+        System.out.println("Hola soy un alumno y se decir mi nombre ");
+        
     }
     
-    //Aquí debe estar lo de override
     
 }
