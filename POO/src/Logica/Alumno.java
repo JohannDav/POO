@@ -5,10 +5,10 @@ public class Alumno {
     int id;
     String nombre;
     String apellido;
-
+    //Constructor vacio
     public Alumno() {
     }
-
+    //constructor completo
     public Alumno(int id, String nombre, String apellido) {
         this.id = id;
         this.nombre = nombre;
