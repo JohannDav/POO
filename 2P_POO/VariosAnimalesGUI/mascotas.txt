@@ -1,4 +1,6 @@
 1,Max,1,30.0,Chihuahua,15.0
 2,Gara,4,10.0,Chihuahua,5.0
 3,Bigotes,2,10.0,Gato,5.0
-4,Tyzon,0,10.0,Labrador,0.0
+4,Tyzon,0,10.0,Labrador,5.0
+10,Perrito,3,15.0,Perro,7.5
+15,Rayito,5,20.0,Gato,10.0
