@@ -334,3 +334,8 @@ public class VariosAnimales extends JFrame {
         }
     }
 }
+/*
+Es por trámite y gusto
+si entiendo lo de la IA, pero cuando no SI le pregunto
+
+*/

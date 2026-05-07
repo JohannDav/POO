@@ -4,3 +4,4 @@
 4,Tyzon,0,10.0,Labrador,5.0
 10,Perrito,3,15.0,Perro,7.5
 15,Rayito,5,20.0,Gato,10.0
+6,Chimo,9,10.0,Perro,5.0
