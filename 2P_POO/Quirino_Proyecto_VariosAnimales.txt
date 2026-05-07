@@ -18,23 +18,27 @@ public class VariosAnimales extends JFrame {
         
         // Configuracion de la ventana
         setTitle("Sistema Veterinario - Gestion de Mascotas");
-        setSize(500, 450);
+        setSize(500, 550);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
         // Crear botones
         JButton btnRegistrar = new JButton("Registrar Mascota");
         JButton btnCalcularDosis = new JButton("Calcular Dosis de Medicamento");
+        JButton btnModificar = new JButton("Modificar Mascota");
+        JButton btnEliminar = new JButton("Eliminar Mascota");
         JButton btnMostrarTodos = new JButton("Mostrar Todas las Mascotas");
         JButton btnGuardar = new JButton("Guardar Archivo");
         JButton btnSalir = new JButton("Salir");
         
-        // Panel con los botones (GridLayout de 5 filas)
+        // Panel con los botones (GridLayout de 7 filas para los 7 botones)
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(5, 1, 10, 10));
+        panel.setLayout(new GridLayout(7, 1, 10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.add(btnRegistrar);
         panel.add(btnCalcularDosis);
+        panel.add(btnModificar);
+        panel.add(btnEliminar);
         panel.add(btnMostrarTodos);
         panel.add(btnGuardar);
         panel.add(btnSalir);
@@ -44,6 +48,8 @@ public class VariosAnimales extends JFrame {
         // Acciones de los botones (usando lambdas)
         btnRegistrar.addActionListener(e -> registrarMascota());
         btnCalcularDosis.addActionListener(e -> calcularDosisMascota());
+        btnModificar.addActionListener(e -> modificarMascota());
+        btnEliminar.addActionListener(e -> eliminarMascota());
         btnMostrarTodos.addActionListener(e -> mostrarTodas());
         btnGuardar.addActionListener(e -> guardarArchivo());
         btnSalir.addActionListener(e -> {
@@ -164,6 +170,9 @@ public class VariosAnimales extends JFrame {
             JOptionPane.showMessageDialog(this, "Mascota registrada correctamente!\n" +
                                          "ID: " + id + " | Nombre: " + nombre);
             
+            // PUNTO EXTRA: Guardar automáticamente después del alta
+            guardarArchivo();
+            
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Error: El ID debe ser numero, la edad numero entero y el peso numero decimal.");
         }
@@ -199,6 +208,8 @@ public class VariosAnimales extends JFrame {
                         m.calcularDosis();
                         mostrarInfoDosis(m);
                         encontrado = true;
+                        // PUNTO EXTRA: Guardar automáticamente después de calcular (por si se actualiza dosis)
+                        guardarArchivo();
                         break;
                     }
                 }
@@ -215,6 +226,8 @@ public class VariosAnimales extends JFrame {
                     m.calcularDosis();
                     mostrarInfoDosis(m);
                     encontrado = true;
+                    // PUNTO EXTRA: Guardar automáticamente después de calcular
+                    guardarArchivo();
                     break;
                 }
             }
@@ -241,6 +254,109 @@ public class VariosAnimales extends JFrame {
                         "Formula: Peso x 0.5 ml/kg";
         
         JOptionPane.showMessageDialog(this, mensaje, "Dosis Calculada", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    // NUEVA FUNCION: Modificar Mascota (CAMBIO)
+    private void modificarMascota() {
+        if (listaMascotas.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
+            return;
+        }
+        
+        String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a modificar:");
+        if (idStr == null) return;
+        
+        try {
+            int idBuscado = Integer.parseInt(idStr);
+            for (int i = 0; i < listaMascotas.size(); i++) {
+                Mascota m = listaMascotas.get(i);
+                if (m.getId() == idBuscado) {
+                    // Mostrar datos actuales
+                    JOptionPane.showMessageDialog(this, "Datos actuales:\n" +
+                        "ID: " + m.getId() + "\n" +
+                        "Nombre: " + m.getNombre() + "\n" +
+                        "Edad: " + m.getEdad() + " anos\n" +
+                        "Peso: " + m.getPeso() + " kg\n" +
+                        "Raza: " + m.getRaza());
+                    
+                    // Solicitar nuevos datos
+                    String nuevoNombre = JOptionPane.showInputDialog(this, "Nuevo nombre:", m.getNombre());
+                    if (nuevoNombre == null || nuevoNombre.trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "El nombre no puede estar vacio.");
+                        return;
+                    }
+                    
+                    int nuevaEdad = Integer.parseInt(JOptionPane.showInputDialog(this, "Nueva edad:", m.getEdad()));
+                    if (nuevaEdad < 0) {
+                        JOptionPane.showMessageDialog(this, "La edad no puede ser negativa.");
+                        return;
+                    }
+                    
+                    double nuevoPeso = Double.parseDouble(JOptionPane.showInputDialog(this, "Nuevo peso (kg):", m.getPeso()));
+                    if (nuevoPeso <= 0) {
+                        JOptionPane.showMessageDialog(this, "El peso debe ser mayor a 0.");
+                        return;
+                    }
+                    
+                    String nuevaRaza = JOptionPane.showInputDialog(this, "Nueva raza:", m.getRaza());
+                    if (nuevaRaza == null || nuevaRaza.trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "La raza no puede estar vacia.");
+                        return;
+                    }
+                    
+                    // Crear nueva mascota con los mismos ID pero nuevos datos
+                    Mascota mascotaModificada = new Mascota(m.getId(), nuevoNombre, nuevaEdad, nuevoPeso, nuevaRaza);
+                    // Recalcular dosis
+                    mascotaModificada.calcularDosis();
+                    listaMascotas.set(i, mascotaModificada);
+                    
+                    JOptionPane.showMessageDialog(this, "Mascota modificada correctamente.");
+                    
+                    // PUNTO EXTRA: Guardar automáticamente después de modificar
+                    guardarArchivo();
+                    return;
+                }
+            }
+            JOptionPane.showMessageDialog(this, "Mascota no encontrada.");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Error: ID, edad y peso deben ser numeros validos.");
+        }
+    }
+    
+    // NUEVA FUNCION: Eliminar Mascota (BAJA)
+    private void eliminarMascota() {
+        if (listaMascotas.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
+            return;
+        }
+        
+        String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a eliminar:");
+        if (idStr == null) return;
+        
+        try {
+            int idBuscado = Integer.parseInt(idStr);
+            for (int i = 0; i < listaMascotas.size(); i++) {
+                if (listaMascotas.get(i).getId() == idBuscado) {
+                    Mascota m = listaMascotas.get(i);
+                    int confirm = JOptionPane.showConfirmDialog(this, 
+                        "¿Esta seguro de eliminar a " + m.getNombre() + " (ID: " + m.getId() + ")?",
+                        "Confirmar Eliminacion",
+                        JOptionPane.YES_NO_OPTION);
+                    
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        listaMascotas.remove(i);
+                        JOptionPane.showMessageDialog(this, "Mascota eliminada correctamente.");
+                        
+                        // PUNTO EXTRA: Guardar automáticamente después de eliminar
+                        guardarArchivo();
+                    }
+                    return;
+                }
+            }
+            JOptionPane.showMessageDialog(this, "Mascota no encontrada.");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "ID invalido.");
+        }
     }
     
     private void mostrarTodas() {
@@ -273,6 +389,10 @@ public class VariosAnimales extends JFrame {
         scrollPane.setPreferredSize(new Dimension(600, 450));
         
         JOptionPane.showMessageDialog(this, scrollPane, "Todas las Mascotas", JOptionPane.INFORMATION_MESSAGE);
+        
+        // PUNTO EXTRA: Guardar automáticamente después de consultar (aunque no se modificaron datos)
+        // Esto es opcional, pero lo pongo para que cada accion principal guarde
+        guardarArchivo();
     }
     
     // ========== MAIN ==========
@@ -280,8 +400,9 @@ public class VariosAnimales extends JFrame {
         // Mostrar nombre del autor
         System.out.println("=========================================");
         System.out.println("   Autor: Quirino Gonzalez Johann David");
-        System.out.println("   Proyecto: Sistema Veterinario v2.0");
-        System.out.println("   Caracteristicas: ID, GUI y Archivos");
+        System.out.println("   Proyecto: Sistema Veterinario v3.0");
+        System.out.println("   Caracteristicas: ID, GUI, Archivos,");
+        System.out.println("   Alta, Baja, Cambio, Consulta y Punto Extra");
         System.out.println("=========================================");
         
         // Iniciar la interfaz grafica (esto es importante para GUI)
