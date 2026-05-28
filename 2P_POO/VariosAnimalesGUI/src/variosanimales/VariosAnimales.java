@@ -1,60 +1,112 @@
 // Autor: Quirino Gonzalez Johann David
 package variosanimales;
 
-import java.sql.*;
 import javax.swing.*;
 import java.awt.*;
+import java.io.*;
+import java.sql.*;
 
 public class VariosAnimales extends JFrame {
     
-    ConexionBD dbc = new ConexionBD();
+    // ========== ATRIBUTOS ==========
+    // Ya NO usamos ArrayList, ahora usamos la BD
+    private static final String ARCHIVO = "mascotas_backup.txt";  // Para guardado extra
+    ConexionBD dbc = new ConexionBD();  // Objeto para conexion (igual al ejemplo)
     
-    // Constructor de la ventana principal
+    // ========== CONSTRUCTOR ==========
     public VariosAnimales() {
-        // Configurar la ventana
-        setTitle("Sistema Veterinaria");
-        setSize(500, 450);
+        // Ya NO cargamos archivo, la BD tiene los datos
+        
+        // Configuracion de la ventana
+        setTitle("Sistema Veterinario - Gestion de Mascotas");
+        setSize(500, 550);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
-        // Crear los 7 botones
-        JButton btnRegistrar = new JButton("Registrar");
-        JButton btnActualizar = new JButton("Actualizar");
-        JButton btnEliminar = new JButton("Eliminar");
-        JButton btnMostrar = new JButton("Mostrar");
-        JButton btnConsultar = new JButton("Consultar Dosis");
-        JButton btnGuardar = new JButton("Guardar");
+        // Crear botones
+        JButton btnRegistrar = new JButton("Registrar Mascota");
+        JButton btnCalcularDosis = new JButton("Calcular Dosis de Medicamento");
+        JButton btnModificar = new JButton("Modificar Mascota");
+        JButton btnEliminar = new JButton("Eliminar Mascota");
+        JButton btnMostrarTodos = new JButton("Mostrar Todas las Mascotas");
+        JButton btnGuardar = new JButton("Guardar Archivo");
         JButton btnSalir = new JButton("Salir");
         
-        // Organizar botones en GridLayout vertical
+        // Panel con los botones (GridLayout de 7 filas para los 7 botones)
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(7, 1));
+        panel.setLayout(new GridLayout(7, 1, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.add(btnRegistrar);
-        panel.add(btnActualizar);
+        panel.add(btnCalcularDosis);
+        panel.add(btnModificar);
         panel.add(btnEliminar);
-        panel.add(btnMostrar);
-        panel.add(btnConsultar);
+        panel.add(btnMostrarTodos);
         panel.add(btnGuardar);
         panel.add(btnSalir);
         
-        // Agregar el panel a la ventana
         add(panel);
         
-        // Acción del botón Salir
-        btnSalir.addActionListener(e -> System.exit(0));
-        
-        // Acciones de los botones
+        // Acciones de los botones (usando lambdas)
         btnRegistrar.addActionListener(e -> registrarMascota());
-        btnActualizar.addActionListener(e -> actualizarMascota());
+        btnCalcularDosis.addActionListener(e -> calcularDosisMascota());
+        btnModificar.addActionListener(e -> modificarMascota());
         btnEliminar.addActionListener(e -> eliminarMascota());
-        btnMostrar.addActionListener(e -> mostrarTodas());
-        btnConsultar.addActionListener(e -> consultarDosis());
-        btnGuardar.addActionListener(e -> guardarEnArchivo());
+        btnMostrarTodos.addActionListener(e -> mostrarTodas());
+        btnGuardar.addActionListener(e -> guardarArchivo());
+        btnSalir.addActionListener(e -> {
+            guardarArchivo();  // Guardar antes de salir
+            System.exit(0);
+        });
     }
     
-    // ========== MÉTODOS QUE TRABAJAN CON LA BD ==========
+    // ========== MANEJO DE ARCHIVO (BACKUP) ==========
+    // Este metodo ahora guarda desde la BD a un archivo de texto
+    private void guardarArchivo() {
+        try {
+            Connection conn = ConexionBD.conectarBD();
+            if (conn == null) {
+                JOptionPane.showMessageDialog(this, "No hay conexion con la BD");
+                return;
+            }
+            
+            String sql = "SELECT * FROM mascotas ORDER BY id";
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(ARCHIVO))) {
+                int contador = 0;
+                while (rs.next()) {
+                    writer.write(rs.getInt("id") + "," +
+                                 rs.getString("nombre") + "," +
+                                 rs.getInt("edad") + "," +
+                                 rs.getDouble("peso") + "," +
+                                 rs.getString("raza") + "," +
+                                 rs.getDouble("dosis"));
+                    writer.newLine();
+                    contador++;
+                }
+                
+                if (contador > 0) {
+                    JOptionPane.showMessageDialog(this, "Archivo guardado correctamente.\n" + 
+                                                 "Ubicacion: " + new File(ARCHIVO).getAbsolutePath() +
+                                                 "\nSe guardaron " + contador + " mascotas.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "No hay datos para guardar.");
+                }
+            }
+            
+            rs.close();
+            stmt.close();
+            conn.close();
+            
+        } catch (SQLException | ClassNotFoundException | IOException e) {
+            JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + e.getMessage());
+        }
+    }
     
-    // Alta (Registrar) - INSERT
+    // ========== FUNCIONES PRINCIPALES (USANDO BD) ==========
+    
+    // Alta (Registrar) - INSERT en BD
     private void registrarMascota() {
         try {
             Connection conn = ConexionBD.conectarBD();
@@ -63,24 +115,71 @@ public class VariosAnimales extends JFrame {
                 return;
             }
             
-            // Pedir datos
-            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota:");
-            if (idStr == null) return;
+            // 1. Solicitar ID unico
+            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota (numero entero):");
+            if (idStr == null || idStr.trim().isEmpty()) {
+                conn.close();
+                return;
+            }
             int id = Integer.parseInt(idStr);
             
-            String nombre = JOptionPane.showInputDialog(this, "Nombre:");
-            if (nombre == null) return;
+            // Verificar que el ID no este duplicado (buscar en BD)
+            String checkSql = "SELECT id FROM mascotas WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setInt(1, id);
+            ResultSet rs = checkStmt.executeQuery();
             
-            String edadStr = JOptionPane.showInputDialog(this, "Edad:");
-            if (edadStr == null) return;
+            if (rs.next()) {
+                JOptionPane.showMessageDialog(this, "Error: Ya existe una mascota con ese ID.");
+                rs.close();
+                checkStmt.close();
+                conn.close();
+                return;
+            }
+            rs.close();
+            checkStmt.close();
+            
+            // 2. Solicitar nombre
+            String nombre = JOptionPane.showInputDialog(this, "Nombre de la mascota:");
+            if (nombre == null || nombre.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "El nombre no puede estar vacio.");
+                conn.close();
+                return;
+            }
+            
+            // 3. Solicitar edad
+            String edadStr = JOptionPane.showInputDialog(this, "Edad de la mascota (anos):");
+            if (edadStr == null) {
+                conn.close();
+                return;
+            }
             int edad = Integer.parseInt(edadStr);
+            if (edad < 0) {
+                JOptionPane.showMessageDialog(this, "La edad no puede ser negativa.");
+                conn.close();
+                return;
+            }
             
-            String pesoStr = JOptionPane.showInputDialog(this, "Peso (kg):");
-            if (pesoStr == null) return;
+            // 4. Solicitar peso
+            String pesoStr = JOptionPane.showInputDialog(this, "Peso de la mascota (kg):");
+            if (pesoStr == null) {
+                conn.close();
+                return;
+            }
             double peso = Double.parseDouble(pesoStr);
+            if (peso <= 0) {
+                JOptionPane.showMessageDialog(this, "El peso debe ser mayor a 0.");
+                conn.close();
+                return;
+            }
             
-            String raza = JOptionPane.showInputDialog(this, "Raza:");
-            if (raza == null) return;
+            // 5. Solicitar raza
+            String raza = JOptionPane.showInputDialog(this, "Raza de la mascota:");
+            if (raza == null || raza.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "La raza no puede estar vacia.");
+                conn.close();
+                return;
+            }
             
             // Calcular dosis
             double dosis = peso * 0.5;
@@ -98,132 +197,375 @@ public class VariosAnimales extends JFrame {
             int resultado = pstmt.executeUpdate();
             
             if (resultado > 0) {
-                JOptionPane.showMessageDialog(this, "Mascota registrada correctamente");
+                JOptionPane.showMessageDialog(this, "Mascota registrada correctamente!\n" +
+                                             "ID: " + id + " | Nombre: " + nombre);
+                // PUNTO EXTRA: Guardar automaticamente despues del alta
+                guardarArchivo();
             } else {
-                JOptionPane.showMessageDialog(this, "Error al registrar");
+                JOptionPane.showMessageDialog(this, "Error al registrar mascota.");
             }
             
             pstmt.close();
             conn.close();
             
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Error: ID, edad y peso deben ser numeros");
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Error SQL: " + ex.getMessage());
-        } catch (ClassNotFoundException ex) {
-            JOptionPane.showMessageDialog(this, "Error driver: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "Error: El ID debe ser numero, la edad numero entero y el peso numero decimal.");
+        } catch (SQLException | ClassNotFoundException ex) {
+            JOptionPane.showMessageDialog(this, "Error de BD: " + ex.getMessage());
         }
     }
     
-    // Cambio (Actualizar) - UPDATE
-    private void actualizarMascota() {
+    // Calcular dosis - Consulta en BD
+    private void calcularDosisMascota() {
         try {
             Connection conn = ConexionBD.conectarBD();
             if (conn == null) return;
             
-            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a actualizar:");
-            if (idStr == null) return;
-            int id = Integer.parseInt(idStr);
+            // Primero verificar si hay mascotas
+            String countSql = "SELECT COUNT(*) FROM mascotas";
+            Statement countStmt = conn.createStatement();
+            ResultSet countRs = countStmt.executeQuery(countSql);
+            countRs.next();
+            if (countRs.getInt(1) == 0) {
+                JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
+                countRs.close();
+                countStmt.close();
+                conn.close();
+                return;
+            }
+            countRs.close();
+            countStmt.close();
             
-            // Verificar si existe
-            String checkSql = "SELECT * FROM mascotas WHERE id = ?";
-            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
-            checkStmt.setInt(1, id);
-            ResultSet rs = checkStmt.executeQuery();
+            // Opcion: buscar por ID o por nombre
+            String[] opciones = {"Buscar por ID", "Buscar por Nombre"};
+            int seleccion = JOptionPane.showOptionDialog(this, 
+                "Como desea buscar la mascota?", 
+                "Buscar Mascota",
+                JOptionPane.DEFAULT_OPTION, 
+                JOptionPane.QUESTION_MESSAGE, 
+                null, 
+                opciones, 
+                opciones[0]);
             
-            if (!rs.next()) {
-                JOptionPane.showMessageDialog(this, "Mascota no encontrada");
+            boolean encontrado = false;
+            
+            if (seleccion == 0) {  // Buscar por ID
+                try {
+                    String idStr = JOptionPane.showInputDialog(this, "Ingrese el ID de la mascota:");
+                    if (idStr == null) {
+                        conn.close();
+                        return;
+                    }
+                    int idBuscado = Integer.parseInt(idStr);
+                    
+                    String sql = "SELECT * FROM mascotas WHERE id = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(sql);
+                    pstmt.setInt(1, idBuscado);
+                    ResultSet rs = pstmt.executeQuery();
+                    
+                    if (rs.next()) {
+                        double dosis = rs.getDouble("peso") * 0.5;
+                        mostrarInfoDosis(rs, dosis);
+                        encontrado = true;
+                        
+                        // Actualizar dosis en BD
+                        String updateSql = "UPDATE mascotas SET dosis = ? WHERE id = ?";
+                        PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                        updateStmt.setDouble(1, dosis);
+                        updateStmt.setInt(2, idBuscado);
+                        updateStmt.executeUpdate();
+                        updateStmt.close();
+                        
+                        // PUNTO EXTRA: Guardar automaticamente
+                        guardarArchivo();
+                    }
+                    rs.close();
+                    pstmt.close();
+                    
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "ID invalido.");
+                    conn.close();
+                    return;
+                }
+            } else if (seleccion == 1) {  // Buscar por nombre
+                String nombreBuscado = JOptionPane.showInputDialog(this, "Ingrese el nombre de la mascota:");
+                if (nombreBuscado == null) {
+                    conn.close();
+                    return;
+                }
+                
+                String sql = "SELECT * FROM mascotas WHERE nombre = ?";
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                pstmt.setString(1, nombreBuscado);
+                ResultSet rs = pstmt.executeQuery();
+                
+                if (rs.next()) {
+                    double dosis = rs.getDouble("peso") * 0.5;
+                    mostrarInfoDosis(rs, dosis);
+                    encontrado = true;
+                    
+                    // Actualizar dosis en BD
+                    String updateSql = "UPDATE mascotas SET dosis = ? WHERE nombre = ?";
+                    PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                    updateStmt.setDouble(1, dosis);
+                    updateStmt.setString(2, nombreBuscado);
+                    updateStmt.executeUpdate();
+                    updateStmt.close();
+                    
+                    // PUNTO EXTRA: Guardar automaticamente
+                    guardarArchivo();
+                }
+                rs.close();
+                pstmt.close();
+            }
+            
+            conn.close();
+            
+            if (!encontrado) {
+                JOptionPane.showMessageDialog(this, "Mascota no encontrada.");
+            }
+            
+        } catch (SQLException | ClassNotFoundException ex) {
+            JOptionPane.showMessageDialog(this, "Error de BD: " + ex.getMessage());
+        }
+    }
+    
+    // Metodo auxiliar para mostrar info de dosis (adaptado para ResultSet)
+    private void mostrarInfoDosis(ResultSet rs, double dosis) throws SQLException {
+        String mensaje = "====================================\n" +
+                        "      DATOS DE LA MASCOTA\n" +
+                        "====================================\n" +
+                        "ID: " + rs.getInt("id") + "\n" +
+                        "Nombre: " + rs.getString("nombre") + "\n" +
+                        "Edad: " + rs.getInt("edad") + " anos\n" +
+                        "Peso: " + rs.getDouble("peso") + " kg\n" +
+                        "Raza: " + rs.getString("raza") + "\n" +
+                        "------------------------------------\n" +
+                        "DOSIS DE MEDICAMENTO:\n" +
+                        "   " + String.format("%.2f", dosis) + " ml\n" +
+                        "------------------------------------\n" +
+                        "Formula: Peso x 0.5 ml/kg";
+        
+        JOptionPane.showMessageDialog(this, mensaje, "Dosis Calculada", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    // Modificar Mascota (CAMBIO) - UPDATE en BD
+    private void modificarMascota() {
+        try {
+            Connection conn = ConexionBD.conectarBD();
+            if (conn == null) return;
+            
+            // Verificar si hay mascotas
+            String countSql = "SELECT COUNT(*) FROM mascotas";
+            Statement countStmt = conn.createStatement();
+            ResultSet countRs = countStmt.executeQuery(countSql);
+            countRs.next();
+            if (countRs.getInt(1) == 0) {
+                JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
+                countRs.close();
+                countStmt.close();
+                conn.close();
+                return;
+            }
+            countRs.close();
+            countStmt.close();
+            
+            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a modificar:");
+            if (idStr == null) {
                 conn.close();
                 return;
             }
             
-            // Pedir nuevos datos
-            String nombre = JOptionPane.showInputDialog(this, "Nuevo nombre:", rs.getString("nombre"));
-            if (nombre == null) return;
+            int idBuscado = Integer.parseInt(idStr);
             
-            String edadStr = JOptionPane.showInputDialog(this, "Nueva edad:", rs.getInt("edad"));
-            if (edadStr == null) return;
-            int edad = Integer.parseInt(edadStr);
+            // Buscar la mascota
+            String selectSql = "SELECT * FROM mascotas WHERE id = ?";
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setInt(1, idBuscado);
+            ResultSet rs = selectStmt.executeQuery();
             
-            String pesoStr = JOptionPane.showInputDialog(this, "Nuevo peso:", rs.getDouble("peso"));
-            if (pesoStr == null) return;
-            double peso = Double.parseDouble(pesoStr);
+            if (!rs.next()) {
+                JOptionPane.showMessageDialog(this, "Mascota no encontrada.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
             
-            String raza = JOptionPane.showInputDialog(this, "Nueva raza:", rs.getString("raza"));
-            if (raza == null) return;
+            // Mostrar datos actuales
+            JOptionPane.showMessageDialog(this, "Datos actuales:\n" +
+                "ID: " + rs.getInt("id") + "\n" +
+                "Nombre: " + rs.getString("nombre") + "\n" +
+                "Edad: " + rs.getInt("edad") + " anos\n" +
+                "Peso: " + rs.getDouble("peso") + " kg\n" +
+                "Raza: " + rs.getString("raza"));
             
-            // Recalcular dosis
-            double dosis = peso * 0.5;
+            // Solicitar nuevos datos
+            String nuevoNombre = JOptionPane.showInputDialog(this, "Nuevo nombre:", rs.getString("nombre"));
+            if (nuevoNombre == null || nuevoNombre.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "El nombre no puede estar vacio.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
             
-            // Actualizar
-            String sql = "UPDATE mascotas SET nombre = ?, edad = ?, peso = ?, raza = ?, dosis = ? WHERE id = ?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, nombre);
-            pstmt.setInt(2, edad);
-            pstmt.setDouble(3, peso);
-            pstmt.setString(4, raza);
-            pstmt.setDouble(5, dosis);
-            pstmt.setInt(6, id);
+            String nuevaEdadStr = JOptionPane.showInputDialog(this, "Nueva edad:", rs.getInt("edad"));
+            if (nuevaEdadStr == null) {
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
+            int nuevaEdad = Integer.parseInt(nuevaEdadStr);
+            if (nuevaEdad < 0) {
+                JOptionPane.showMessageDialog(this, "La edad no puede ser negativa.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
             
-            int resultado = pstmt.executeUpdate();
+            String nuevoPesoStr = JOptionPane.showInputDialog(this, "Nuevo peso (kg):", rs.getDouble("peso"));
+            if (nuevoPesoStr == null) {
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
+            double nuevoPeso = Double.parseDouble(nuevoPesoStr);
+            if (nuevoPeso <= 0) {
+                JOptionPane.showMessageDialog(this, "El peso debe ser mayor a 0.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
+            }
             
-            if (resultado > 0) {
-                JOptionPane.showMessageDialog(this, "Mascota actualizada correctamente");
-            } else {
-                JOptionPane.showMessageDialog(this, "Error al actualizar");
+            String nuevaRaza = JOptionPane.showInputDialog(this, "Nueva raza:", rs.getString("raza"));
+            if (nuevaRaza == null || nuevaRaza.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "La raza no puede estar vacia.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
             }
             
             rs.close();
-            checkStmt.close();
-            pstmt.close();
+            selectStmt.close();
+            
+            // Recalcular dosis
+            double nuevaDosis = nuevoPeso * 0.5;
+            
+            // Actualizar en BD
+            String updateSql = "UPDATE mascotas SET nombre = ?, edad = ?, peso = ?, raza = ?, dosis = ? WHERE id = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setString(1, nuevoNombre);
+            updateStmt.setInt(2, nuevaEdad);
+            updateStmt.setDouble(3, nuevoPeso);
+            updateStmt.setString(4, nuevaRaza);
+            updateStmt.setDouble(5, nuevaDosis);
+            updateStmt.setInt(6, idBuscado);
+            
+            int resultado = updateStmt.executeUpdate();
+            
+            if (resultado > 0) {
+                JOptionPane.showMessageDialog(this, "Mascota modificada correctamente.");
+                // PUNTO EXTRA: Guardar automaticamente despues de modificar
+                guardarArchivo();
+            } else {
+                JOptionPane.showMessageDialog(this, "Error al modificar mascota.");
+            }
+            
+            updateStmt.close();
             conn.close();
             
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Error: Los valores deben ser numeros");
-        } catch (SQLException | ClassNotFoundException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Error: ID, edad y peso deben ser numeros validos.");
+        } catch (SQLException | ClassNotFoundException e) {
+            JOptionPane.showMessageDialog(this, "Error de BD: " + e.getMessage());
         }
     }
     
-    // Baja (Eliminar) - DELETE
+    // Eliminar Mascota (BAJA) - DELETE en BD
     private void eliminarMascota() {
         try {
             Connection conn = ConexionBD.conectarBD();
             if (conn == null) return;
             
-            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a eliminar:");
-            if (idStr == null) return;
-            int id = Integer.parseInt(idStr);
+            // Verificar si hay mascotas
+            String countSql = "SELECT COUNT(*) FROM mascotas";
+            Statement countStmt = conn.createStatement();
+            ResultSet countRs = countStmt.executeQuery(countSql);
+            countRs.next();
+            if (countRs.getInt(1) == 0) {
+                JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
+                countRs.close();
+                countStmt.close();
+                conn.close();
+                return;
+            }
+            countRs.close();
+            countStmt.close();
             
-            int confirm = JOptionPane.showConfirmDialog(this, "¿Seguro que quieres eliminar la mascota con ID " + id + "?");
-            if (confirm != JOptionPane.YES_OPTION) {
+            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota a eliminar:");
+            if (idStr == null) {
                 conn.close();
                 return;
             }
             
-            String sql = "DELETE FROM mascotas WHERE id = ?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, id);
+            int idBuscado = Integer.parseInt(idStr);
             
-            int resultado = pstmt.executeUpdate();
+            // Obtener nombre para el mensaje de confirmacion
+            String selectSql = "SELECT nombre FROM mascotas WHERE id = ?";
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setInt(1, idBuscado);
+            ResultSet rs = selectStmt.executeQuery();
             
-            if (resultado > 0) {
-                JOptionPane.showMessageDialog(this, "Mascota eliminada correctamente");
-            } else {
-                JOptionPane.showMessageDialog(this, "Mascota no encontrada");
+            if (!rs.next()) {
+                JOptionPane.showMessageDialog(this, "Mascota no encontrada.");
+                rs.close();
+                selectStmt.close();
+                conn.close();
+                return;
             }
             
-            pstmt.close();
+            String nombre = rs.getString("nombre");
+            rs.close();
+            selectStmt.close();
+            
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "¿Esta seguro de eliminar a " + nombre + " (ID: " + idBuscado + ")?",
+                "Confirmar Eliminacion",
+                JOptionPane.YES_NO_OPTION);
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                String deleteSql = "DELETE FROM mascotas WHERE id = ?";
+                PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+                deleteStmt.setInt(1, idBuscado);
+                
+                int resultado = deleteStmt.executeUpdate();
+                
+                if (resultado > 0) {
+                    JOptionPane.showMessageDialog(this, "Mascota eliminada correctamente.");
+                    // PUNTO EXTRA: Guardar automaticamente despues de eliminar
+                    guardarArchivo();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Error al eliminar mascota.");
+                }
+                deleteStmt.close();
+            }
+            
             conn.close();
             
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "ID debe ser numero");
-        } catch (SQLException | ClassNotFoundException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "ID invalido.");
+        } catch (SQLException | ClassNotFoundException e) {
+            JOptionPane.showMessageDialog(this, "Error de BD: " + e.getMessage());
         }
     }
     
-    // Mostrar todos (SELECT)
+    // Mostrar todas las mascotas (CONSULTA) - SELECT en BD
     private void mostrarTodas() {
         try {
             Connection conn = ConexionBD.conectarBD();
@@ -242,23 +584,26 @@ public class VariosAnimales extends JFrame {
             
             while (rs.next()) {
                 hayDatos = true;
+                double dosis = rs.getDouble("peso") * 0.5;
                 builder.append("ID: ").append(rs.getInt("id")).append("\n");
                 builder.append("Nombre: ").append(rs.getString("nombre")).append("\n");
-                builder.append("Edad: ").append(rs.getInt("edad")).append(" años\n");
+                builder.append("Edad: ").append(rs.getInt("edad")).append(" anos\n");
                 builder.append("Peso: ").append(rs.getDouble("peso")).append(" kg\n");
                 builder.append("Raza: ").append(rs.getString("raza")).append("\n");
-                builder.append("Dosis: ").append(String.format("%.2f", rs.getDouble("dosis"))).append(" ml\n");
+                builder.append("Dosis: ").append(String.format("%.2f", dosis)).append(" ml\n");
                 builder.append("------------------------------------\n");
             }
             
             if (!hayDatos) {
-                JOptionPane.showMessageDialog(this, "No hay mascotas registradas");
+                JOptionPane.showMessageDialog(this, "No hay mascotas registradas.");
             } else {
+                // Mostrar en un area de texto con scroll
                 JTextArea textArea = new JTextArea(builder.toString());
                 textArea.setEditable(false);
                 textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
                 JScrollPane scrollPane = new JScrollPane(textArea);
                 scrollPane.setPreferredSize(new Dimension(600, 450));
+                
                 JOptionPane.showMessageDialog(this, scrollPane, "Todas las Mascotas", JOptionPane.INFORMATION_MESSAGE);
             }
             
@@ -267,117 +612,34 @@ public class VariosAnimales extends JFrame {
             conn.close();
             
         } catch (SQLException | ClassNotFoundException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-        }
-    }
-    
-    // Consultar dosis (SELECT por ID)
-    private void consultarDosis() {
-        try {
-            Connection conn = ConexionBD.conectarBD();
-            if (conn == null) return;
-            
-            String idStr = JOptionPane.showInputDialog(this, "ID de la mascota para calcular dosis:");
-            if (idStr == null) return;
-            int id = Integer.parseInt(idStr);
-            
-            String sql = "SELECT * FROM mascotas WHERE id = ?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, id);
-            ResultSet rs = pstmt.executeQuery();
-            
-            if (rs.next()) {
-                double peso = rs.getDouble("peso");
-                double dosis = peso * 0.5;
-                
-                String mensaje = "====================================\n" +
-                                "      DATOS DE LA MASCOTA\n" +
-                                "====================================\n" +
-                                "ID: " + rs.getInt("id") + "\n" +
-                                "Nombre: " + rs.getString("nombre") + "\n" +
-                                "Edad: " + rs.getInt("edad") + " años\n" +
-                                "Peso: " + peso + " kg\n" +
-                                "Raza: " + rs.getString("raza") + "\n" +
-                                "------------------------------------\n" +
-                                "DOSIS DE MEDICAMENTO:\n" +
-                                "   " + String.format("%.2f", dosis) + " ml\n" +
-                                "------------------------------------\n" +
-                                "Formula: Peso x 0.5 ml/kg";
-                
-                JOptionPane.showMessageDialog(this, mensaje, "Dosis Calculada", JOptionPane.INFORMATION_MESSAGE);
-                
-                // Opcional: actualizar la dosis en la BD
-                String updateSql = "UPDATE mascotas SET dosis = ? WHERE id = ?";
-                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
-                updateStmt.setDouble(1, dosis);
-                updateStmt.setInt(2, id);
-                updateStmt.executeUpdate();
-                updateStmt.close();
-                
-            } else {
-                JOptionPane.showMessageDialog(this, "Mascota no encontrada");
-            }
-            
-            rs.close();
-            pstmt.close();
-            conn.close();
-            
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "ID debe ser numero");
-        } catch (SQLException | ClassNotFoundException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-        }
-    }
-    
-    // Guardar en archivo (extra)
-    private void guardarEnArchivo() {
-        try {
-            Connection conn = ConexionBD.conectarBD();
-            if (conn == null) return;
-            
-            String sql = "SELECT * FROM mascotas";
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
-            
-            java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter("mascotas_backup.txt"));
-            
-            while (rs.next()) {
-                writer.write(rs.getInt("id") + "," +
-                             rs.getString("nombre") + "," +
-                             rs.getInt("edad") + "," +
-                             rs.getDouble("peso") + "," +
-                             rs.getString("raza") + "," +
-                             rs.getDouble("dosis"));
-                writer.newLine();
-            }
-            
-            writer.close();
-            rs.close();
-            stmt.close();
-            conn.close();
-            
-            JOptionPane.showMessageDialog(this, "Datos guardados en mascotas_backup.txt");
-            
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al guardar: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "Error de BD: " + ex.getMessage());
         }
     }
     
     // ========== MAIN ==========
     public static void main(String[] args) {
-        // Probar conexión primero
+        // Mostrar nombre del autor
+        System.out.println("=========================================");
+        System.out.println("   Autor: Quirino Gonzalez Johann David");
+        System.out.println("   Proyecto: Sistema Veterinario v3.0");
+        System.out.println("   Caracteristicas: ID, GUI, Access, Archivos,");
+        System.out.println("   Alta, Baja, Cambio, Consulta y Punto Extra");
+        System.out.println("=========================================");
+        
+        // Probar conexion primero (igual al ejemplo de AlumnosAccess)
         try {
             Connection conn = ConexionBD.conectarBD();
             if (conn != null) {
-                System.out.println("Conexion exitosa");
+                System.out.println("Conexion exitosa a la BD veterinaria.accdb");
                 conn.close();
             }
         } catch (Exception e) {
-            System.out.println("Error: " + e);
+            System.out.println("Error de conexion: " + e);
         }
         
-        // Mostrar la ventana
-        VariosAnimales ventana = new VariosAnimales();
-        ventana.setVisible(true);
+        // Iniciar la interfaz grafica
+        SwingUtilities.invokeLater(() -> {
+            new VariosAnimales().setVisible(true);
+        });
     }
 }
