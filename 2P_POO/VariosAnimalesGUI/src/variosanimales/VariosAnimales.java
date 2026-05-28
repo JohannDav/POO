@@ -148,7 +148,7 @@ public class VariosAnimales extends JFrame {
             }
             
             // 3. Solicitar edad
-            String edadStr = JOptionPane.showInputDialog(this, "Edad de la mascota (anos):");
+            String edadStr = JOptionPane.showInputDialog(this, "Edad de la mascota (anos en numero entero):");
             if (edadStr == null) {
                 conn.close();
                 return;
@@ -161,7 +161,7 @@ public class VariosAnimales extends JFrame {
             }
             
             // 4. Solicitar peso
-            String pesoStr = JOptionPane.showInputDialog(this, "Peso de la mascota (kg):");
+            String pesoStr = JOptionPane.showInputDialog(this, "Peso de la mascota (Kg):");
             if (pesoStr == null) {
                 conn.close();
                 return;

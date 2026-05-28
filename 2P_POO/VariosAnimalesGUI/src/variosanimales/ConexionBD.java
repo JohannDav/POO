@@ -13,7 +13,8 @@ public class ConexionBD {
         try {
             Class.forName(driver);
             ConexionBD = DriverManager.getConnection(url);
-            JOptionPane.showMessageDialog(null, "Se conecto la BD Access");
+            //Se comenta para quitar el mensaje de "Se conecto..." en cada interaccion
+            //JOptionPane.showMessageDialog(null, "Se conecto la BD Access");
         } catch (SQLException e) {
             System.out.println("No se conecto la BD - Error: " + e);
         }
