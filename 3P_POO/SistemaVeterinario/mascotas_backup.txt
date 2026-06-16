@@ -1,0 +1,10 @@
+1,Firulais,3,15.5,Golden Retriever,7.75
+2,Luna,2,8.2,Labrador,4.10
+3,Max,5,22.0,Pastor Aleman,11.00
+4,Bella,4,12.3,Poodle,6.15
+5,Rocky,1,5.5,Bulldog Frances,2.75
+6,Coco,6,18.7,Husky Siberiano,9.35
+7,Nala,3,10.2,Beagle,5.10
+8,Toby,7,25.0,Doberman,12.50
+9,Simba,2,6.8,Chihuahua,3.40
+10,Kiara,4,14.5,Boxer,7.25
